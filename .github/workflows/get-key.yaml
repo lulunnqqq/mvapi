@@ -27,16 +27,16 @@ jobs:
           node-version: 20
 
       - name: Install synchrony-cli
-        run: npm install -g deobfuscator axios cheerio
+        run: npm install -g deobfuscator axios cheerio && npm pkg set type="module"
  
       - name: Extract deobfuscator
-        run: node --experimental-modules .github/script/extractKey.js data.js
+        run: node  .github/script/extractKey.js data.js
 
       - name: deobfuscator
         run: synchrony data.js
 
       - name: Get key
-        run: node --experimental-modules .github/script/getKey.js data.cleaned.js key
+        run: node  .github/script/getKey.js data.cleaned.js key
 
       - name: Checkout ${{ matrix.branch }} branch
         uses: actions/checkout@v4

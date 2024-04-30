@@ -2,7 +2,7 @@
 // const fs = require("fs");
 import fs from 'fs';
 import axios from "axios";
-import cheerio from "cheerio";
+import cheerio from 'cheerio' 
 
 const url = "https://w1.moviesapi.club/v/Ww2inibUTJx5/"
 const getData = async () => {
