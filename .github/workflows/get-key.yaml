@@ -17,12 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repo
-        uses: actions/checkout@key
+        uses: actions/checkout@v4
         with:
           ref: main
 
       - name: Setup NodeJS environment
-        uses: actions/setup-node@key
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -39,7 +39,7 @@ jobs:
         run: node .github/script/getKey.js data.cleaned.js key
 
       - name: Checkout ${{ matrix.branch }} branch
-        uses: actions/checkout@key
+        uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
           path: key_repo
