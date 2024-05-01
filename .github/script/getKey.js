@@ -26,3 +26,4 @@ const getKey = () => {
     fs.writeFileSync(output, keyExtracted);
     return;
 }
+getKey();
