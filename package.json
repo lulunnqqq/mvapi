@@ -1,0 +1,28 @@
+{
+  "name": "mvapi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "commomjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://lulunnqqq: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@github.com/lulunnqqq/mvapi.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lulunnqqq/mvapi/issues"
+  },
+  "homepage": "https://github.com/lulunnqqq/mvapi#readme",
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cheerio": "^1.0.0-rc.12",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7"
+  }
+}
