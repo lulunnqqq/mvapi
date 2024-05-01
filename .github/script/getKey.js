@@ -17,6 +17,7 @@ const getKey = () => {
 
     const data =  fs.readFileSync(cleaned, 'utf8');
     let keyExtracted = data.match(/JScripts\, *['"]([^'"]+)/i);
+    keyExtracted = keyExtracted ? keyExtracted[1] : "";
 
     console.log({keyExtracted, data})
 
