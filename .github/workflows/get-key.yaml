@@ -39,7 +39,7 @@ jobs:
         run: synchrony data.js
 
       - name: Get key
-        run: node  .github/script/getKey.js data.cleaned.js key
+        run: ls ./ && node .github/script/getKey.js data.cleaned.js key
 
       - name: Checkout ${{ matrix.branch }} branch
         uses: actions/checkout@v4
