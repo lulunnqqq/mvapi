@@ -50,6 +50,7 @@ jobs:
       - name: Update key if it differs
         run: |
           cd key_repo
+          ls ./
           echo "Old -> $(cat key) || New -> $(cat ../key)"
           if [[ "$(cat key)" != "$(cat ../key)" ]]; then
             cp ../key .
