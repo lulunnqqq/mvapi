@@ -26,8 +26,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install package
+        run:  npm install axios cheerio
+
       - name: Install synchrony-cli
-        run:  npm install deobfuscator axios cheerio
+        run:  npm install -g deobfuscator
  
       - name: Extract deobfuscator
         run: node  .github/script/extractKey.js data.js
