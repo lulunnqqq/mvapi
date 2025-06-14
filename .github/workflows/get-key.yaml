@@ -1,4 +1,4 @@
-name: Get Key
+name: Get New Key
 
 on:
   workflow_dispatch:
