@@ -26,20 +26,14 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install package
-        run:  npm install axios cheerio
+      - name: Install dependencies
+        run: npm install
 
-      - name: Install synchrony-cli
-        run:  npm install -g deobfuscator
- 
-      - name: Extract deobfuscator
-        run: node  .github/script/extractKey.js data.js
+      - name: Run deobfuscation
+        run: node deobfuscate.js
 
-      - name: deobfuscator
-        run: synchrony data.js
-
-      - name: Get key
-        run: ls ./ && node .github/script/getKey.js data.cleaned.js key
+      - name: Extract arrays and generate key
+        run: node extractor.js
 
       - name: Checkout ${{ matrix.branch }} branch
         uses: actions/checkout@v4
@@ -47,18 +41,23 @@ jobs:
           ref: ${{ matrix.branch }}
           path: key_repo
 
-      - name: Update key if it differs
+      - name: Update extracted arrays if they differ
         run: |
           cd key_repo
           ls ./
-          echo "Old -> $(cat key) || New -> $(cat ../key)"
-          if [[ "$(cat key)" != "$(cat ../key)" ]]; then
-            cp ../key .
-            git config --local user.email "github-actions[bot]@users.noreply.github.com"
-            git config --local user.name "github-actions[bot]"
-            git add key
-            git commit --amend -m "chore: Updating key"
-            git push --force
+          if [[ -f "../extracted_arrays.json" ]]; then
+            if [[ ! -f "extracted_arrays.json" ]] || [[ "$(cat extracted_arrays.json 2>/dev/null || echo '')" != "$(cat ../extracted_arrays.json)" ]]; then
+              cp ../extracted_arrays.json .
+              git config --local user.email "github-actions[bot]@users.noreply.github.com"
+              git config --local user.name "github-actions[bot]"
+              git add extracted_arrays.json
+              git commit --amend -m "chore: Update extracted arrays and decryption key"
+              git push --force
+            else
+              echo "extracted_arrays.json not change"
+            fi
+          else
+            echo "Not found file extracted_arrays.json"
           fi
 
   # Workaround for CI schedule event, to prevent it's delays (5min ~ 1h!)
