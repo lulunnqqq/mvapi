@@ -74,7 +74,7 @@ jobs:
         run: sleep 300
 
       - name: Re-trigger workflow
-        run: gh workflow run get-key.yaml
+        run: gh workflow run get-ex-key.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
