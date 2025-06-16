@@ -465,6 +465,342 @@ console.log('Key Length:', decryptionKey.length);
 `;
 }
 
+/**
+ * Extract decrypt key string from JS file following API flow: getSources -> __z1d -> E() -> A()+Y()+...
+ */
+function extractDecryptKey(jsContent) {
+    try {
+        console.log('\n=== EXTRACTING DECRYPT KEY ===');
+        console.log('🔧 Using multiple fallback methods (no dependency on specific function names)');
+        console.log('📌 Priority: Direct pattern → API trace → Crypto pattern → Generic → 9-function pattern');
+        
+        // Method 1: Find direct concatenation function E() pattern (BEST - no name dependency)
+        console.log('Method 1: Searching for concatenation function...');
+        const concatenationPattern = /(\w+)\s*=\s*\(\)\s*=>\s*{[^}]*?return\s+(\w+\(\)\s*\+[^;]+);/gs;
+        let match;
+        
+        while ((match = concatenationPattern.exec(jsContent)) !== null) {
+            const functionName = match[1];
+            const returnStatement = match[2];
+            
+            console.log('Found concatenation function:', functionName);
+            console.log('Return statement:', returnStatement);
+            
+            // Check if it's the pattern A() + B() + C() + ...
+            if (/\w+\(\)\s*\+\s*\w+\(\)/.test(returnStatement)) {
+                const result = extractKeyFromConcatenation(jsContent, returnStatement);
+                if (result) return result;
+            }
+        }
+        
+        // Method 2: Find via API getSources pattern
+        console.log('Method 2: Searching via getSources API pattern...');
+        const apiPattern = /getSources[^}]*?["']parse["'][^}]*?(\w+)\[["'](\w+)["']\][^}]*?\(([^)]+)\)/s;
+        const apiMatch = jsContent.match(apiPattern);
+        
+        if (apiMatch) {
+            console.log('Found API call pattern with decrypt function:', apiMatch[2]);
+            const result = findDecryptKeyFromAPI(jsContent, apiMatch[2]);
+            if (result) return result;
+        }
+        
+        // Method 3: Find via CryptoJS AES decrypt pattern
+        console.log('Method 3: Searching via CryptoJS pattern...');
+        const cryptoPattern = /(\w+)\s*=\s*(\w+)\[["']AES["']\]\[["']decrypt["']\]/;
+        const cryptoMatch = jsContent.match(cryptoPattern);
+        
+        if (cryptoMatch) {
+            console.log('Found CryptoJS decrypt pattern');
+            const result = findDecryptKeyFromCrypto(jsContent);
+            if (result) return result;
+        }
+        
+        // Method 4: Find any generic decrypt function
+        console.log('Method 4: Searching for generic decrypt function...');
+        const genericDecryptPattern = /(\w+)\[["'](\w+)["']\]\s*=\s*[^{]*?=>\s*{[^}]*?(\w+)\s*=\s*(\w+)\(\)/gs;
+        let genericMatch;
+        
+        while ((genericMatch = genericDecryptPattern.exec(jsContent)) !== null) {
+            const keyFunctionName = genericMatch[4];
+            console.log('Found potential decrypt function with key function:', keyFunctionName);
+            
+            // Check if this function is a concatenation function
+            if (isConcatenationFunction(jsContent, keyFunctionName)) {
+                const result = extractKeyFromFunction(jsContent, keyFunctionName);
+                if (result) return result;
+            }
+        }
+        
+        // Method 5: Find any function with 9 concatenated calls directly
+        console.log('Method 5: Searching for any function with 9 concatenated calls...');
+        const nineFunctionPattern = /(\w+)\s*=\s*\(\)\s*=>\s*{[^}]*?return\s+(\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\)\s*\+\s*\w+\(\))/gs;
+        let nineMatch;
+        
+        while ((nineMatch = nineFunctionPattern.exec(jsContent)) !== null) {
+            const returnStatement = nineMatch[2];
+            console.log('Found function with 9 concatenated calls:', nineMatch[1]);
+            const result = extractKeyFromConcatenation(jsContent, returnStatement);
+            if (result) return result;
+        }
+        
+        console.log('Could not find decrypt key using any method');
+        return null;
+        
+    } catch (error) {
+        console.error('Error extracting decrypt key:', error);
+        return null;
+    }
+}
+
+/**
+ * Check if function is a concatenation function
+ */
+function isConcatenationFunction(jsContent, functionName) {
+    const functionPattern = new RegExp(`${functionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^}]*?return\\s+([^;]+);`, 's');
+    const match = jsContent.match(functionPattern);
+    
+    if (!match) return false;
+    
+    const returnStatement = match[1];
+    // Check if it's the pattern A() + B() + C() + ...
+    const concatenationPattern = /\w+\(\)\s*\+\s*\w+\(\)/;
+    return concatenationPattern.test(returnStatement);
+}
+
+/**
+ * Extract key from concatenation return statement 
+ */
+function extractKeyFromConcatenation(jsContent, returnStatement) {
+    try {
+        console.log('Extracting key from concatenation:', returnStatement);
+        
+        // Parse function calls from return statement
+        const functionCalls = returnStatement.split('+').map(call => call.trim().replace(/\(\)$/, ''));
+        console.log('Function calls:', functionCalls);
+        
+        // Extract string from each function
+        let decryptKey = '';
+        
+        for (const funcName of functionCalls) {
+            const stringValue = extractStringFromFunction(jsContent, funcName.trim());
+            if (stringValue) {
+                decryptKey += stringValue;
+                console.log(`${funcName}() = "${stringValue}"`);
+            } else {
+                console.log(`Could not find string for function: ${funcName}`);
+            }
+        }
+        
+        console.log('Final decrypt key:', decryptKey);
+        return decryptKey;
+        
+    } catch (error) {
+        console.error('Error extracting key from concatenation:', error);
+        return null;
+    }
+}
+
+/**
+ * Extract key from concatenation function
+ */
+function extractKeyFromFunction(jsContent, functionName) {
+    try {
+        console.log('Extracting key from function:', functionName);
+        
+        // Find function definition
+        const functionPattern = new RegExp(`${functionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^}]*?return\\s+([^;]+);`, 's');
+        const match = jsContent.match(functionPattern);
+        
+        if (!match) {
+            console.log('Could not find function definition for:', functionName);
+            return null;
+        }
+        
+        const returnStatement = match[1].trim();
+        console.log('Return statement:', returnStatement);
+        
+        // Parse function calls from return statement
+        const functionCalls = returnStatement.split('+').map(call => call.trim().replace(/\(\)$/, ''));
+        console.log('Function calls:', functionCalls);
+        
+        // Extract string from each function
+        let decryptKey = '';
+        
+        for (const funcName of functionCalls) {
+            const stringValue = extractStringFromFunction(jsContent, funcName.trim());
+            if (stringValue) {
+                decryptKey += stringValue;
+                console.log(`${funcName}() = "${stringValue}"`);
+            } else {
+                console.log(`Could not find string for function: ${funcName}`);
+            }
+        }
+        
+        console.log('Final decrypt key:', decryptKey);
+        return decryptKey;
+        
+    } catch (error) {
+        console.error('Error extracting key from function:', error);
+        return null;
+    }
+}
+
+/**
+ * Extract string value from a function
+ */
+function extractStringFromFunction(jsContent, functionName) {
+    try {
+        // Escape function name to avoid regex injection
+        const escapedFunctionName = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Find function definition with different patterns
+        const patterns = [
+            // Pattern 1: Simple - function() { return "string"; }
+            new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^}]*?return\\s+["']([^"']+)["']`, 's'),
+            
+            // Pattern 2: With if condition - function() { if(...) { return "string"; } }
+            new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^}]*?if\\s*\\([^)]+\\)\\s*{[^}]*?return\\s+["']([^"']+)["']`, 's'),
+            
+            // Pattern 3: Multi-line with if and else
+            new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^{}]*?if\\s*\\([^)]+\\)\\s*{[^}]*?return\\s+["']([^"']+)["'][^}]*?}[^}]*?}`, 's'),
+            
+            // Pattern 4: With other code lines before return
+            new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[\\s\\S]*?return\\s+["']([^"']+)["'][\\s\\S]*?}`, 's'),
+            
+            // Pattern 5: Find in first if block
+            new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[\\s\\S]*?if\\s*\\([^)]+\\)\\s*{[\\s\\S]*?return\\s+["']([^"']+)["']`, 's')
+        ];
+        
+        for (let i = 0; i < patterns.length; i++) {
+            const match = jsContent.match(patterns[i]);
+            if (match) {
+                console.log(`Found string for ${functionName} using pattern ${i + 1}: "${match[1]}"`);
+                return match[1];
+            }
+        }
+        
+        // Debug: Find function to see structure
+        const functionDefPattern = new RegExp(`${escapedFunctionName}\\s*=\\s*\\(\\)\\s*=>\\s*{[^{}]*?}`, 's');
+        const functionDef = jsContent.match(functionDefPattern);
+        if (functionDef) {
+            console.log(`Debug - Found function ${functionName}:`, functionDef[0]);
+        } else {
+            console.log(`Debug - Could not find function definition for: ${functionName}`);
+        }
+        
+        return null;
+    } catch (error) {
+        console.error(`Error extracting string from function ${functionName}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Find decrypt key from API getSources pattern
+ */
+function findDecryptKeyFromAPI(jsContent, decryptFunctionName) {
+    try {
+        // Find function definition of decrypt function
+        const patterns = [
+            // Pattern for assignment like: r5Jvh["__z1d"] = functionName => { ... }
+            new RegExp(`(\\w+)\\[["']${decryptFunctionName}["']\\]\\s*=\\s*[^{]*?=>\\s*{[\\s\\S]*?([\\w]+)\\s*=\\s*(\\w+)\\(\\)`, 's'),
+            // Pattern for any object property assignment
+            new RegExp(`\\[["']${decryptFunctionName}["']\\]\\s*=\\s*[^{]*?=>\\s*{[\\s\\S]*?([\\w]+)\\s*=\\s*(\\w+)\\(\\)`, 's'),
+            // More general pattern
+            new RegExp(`${decryptFunctionName}[\\s\\S]*?([\\w]+)\\s*=\\s*(\\w+)\\(\\)`, 's')
+        ];
+        
+        for (const pattern of patterns) {
+            const match = jsContent.match(pattern);
+            if (match) {
+                const keyFunctionName = match[match.length - 1]; // Get last capture group
+                console.log('Found key function from API pattern:', keyFunctionName);
+                
+                if (isConcatenationFunction(jsContent, keyFunctionName)) {
+                    return extractKeyFromFunction(jsContent, keyFunctionName);
+                }
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error finding decrypt key from API:', error);
+        return null;
+    }
+}
+
+/**
+ * Find decrypt key from CryptoJS pattern
+ */
+function findDecryptKeyFromCrypto(jsContent) {
+    try {
+        // Find pattern calling AES decrypt with key
+        const aesPattern = /(\w+)\(([^,]+),\s*(\w+)\)/g;
+        let match;
+        
+        while ((match = aesPattern.exec(jsContent)) !== null) {
+            const keyVariable = match[3];
+            console.log('Found potential key variable:', keyVariable);
+            
+            // Find assignment of key variable
+            const keyAssignmentPattern = new RegExp(`${keyVariable}\\s*=\\s*(\\w+)\\(\\)`, 'g');
+            const keyMatch = jsContent.match(keyAssignmentPattern);
+            
+            if (keyMatch) {
+                const keyFunctionName = keyMatch[0].split('=')[1].trim().replace('()', '');
+                console.log('Found key function from crypto pattern:', keyFunctionName);
+                
+                if (isConcatenationFunction(jsContent, keyFunctionName)) {
+                    return extractKeyFromFunction(jsContent, keyFunctionName);
+                }
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error finding decrypt key from crypto:', error);
+        return null;
+    }
+}
+
+/**
+ * Extract function body from function definition
+ */
+function extractFunctionBody(jsContent, functionStart) {
+    try {
+        const startIndex = jsContent.indexOf(functionStart);
+        if (startIndex === -1) return null;
+        
+        let braceCount = 0;
+        let inFunction = false;
+        let body = '';
+        
+        for (let i = startIndex; i < jsContent.length; i++) {
+            const char = jsContent[i];
+            
+            if (char === '{') {
+                inFunction = true;
+                braceCount++;
+            } else if (char === '}') {
+                braceCount--;
+            }
+            
+            if (inFunction) {
+                body += char;
+            }
+            
+            if (inFunction && braceCount === 0) {
+                break;
+            }
+        }
+        
+        return body;
+    } catch (error) {
+        console.error('Error extracting function body:', error);
+        return null;
+    }
+}
+
 // Main execution
 function main() {
     console.log('🚀 Megacloud Decryption Array Extractor');
@@ -484,14 +820,28 @@ function main() {
     const jsContent = fs.readFileSync(inputFile, 'utf8');
     console.log(`📊 File size: ${(jsContent.length / 1024).toFixed(2)} KB`);
     
-    // Extract arrays
+    // Extract decrypt key using new method
+    const decryptKey = extractDecryptKey(jsContent);
+    
+    // Extract arrays using old method
     const result = extractDecryptionArrays(jsContent);
     
-    console.log(result);
+    // Create result object if not exists
+    let finalResult = result || {};
+    
+    // Add decrypt key to result
+    if (decryptKey) {
+        finalResult.decryptionKey = decryptKey;
+        console.log('\n🔑 Decrypt key extracted:', decryptKey);
+    }
+    
+    console.log('Final result:', finalResult);
 
+    // Display results
+    console.log('\n🎉 EXTRACTION RESULTS:');
+    console.log('====================');
+    
     if (result) {
-        console.log('\n🎉 EXTRACTION RESULTS:');
-        console.log('====================');
         console.log(`📝 String Array (${result.stringArray.name}): ${result.stringArray.length} elements`);
         console.log(`🔢 Number Array (${result.numberArray.name}): ${result.numberArray.length} elements`);
         console.log(`🔑 Decryption Key: ${result.keyLength} characters`);
@@ -500,15 +850,22 @@ function main() {
         if (result.warning) {
             console.log(`⚠️  Warning: ${result.warning}`);
         }
-        
-        // Save results
-        saveResults(result);
-        
-        
-        console.log('\n✅ Complete! You can use the decryption key to decrypt video sources.');
-        
     } else {
-        console.log('\n❌ COULD NOT EXTRACT');
+        console.log('❌ Could not extract arrays (this is expected for some obfuscated files)');
+    }
+    
+    if (decryptKey) {
+        console.log(`🎯 New Decrypt Key: ${decryptKey}`);
+        console.log(`🎯 Key Length: ${decryptKey.length} characters`);
+        
+        // Save results with decrypt key
+        saveResults(finalResult);
+        
+        console.log('\n✅ SUCCESS! Decrypt key extracted successfully!');
+        console.log('📄 Results saved to extracted_arrays.json');
+        console.log('🚀 You can use this decrypt key to decrypt video sources.');
+    } else {
+        console.log('\n❌ COULD NOT EXTRACT DECRYPT KEY');
         console.log('======================');
         console.log('💡 Possible reasons:');
         console.log('   - File was obfuscated in a different way');
