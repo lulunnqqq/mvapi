@@ -33,7 +33,7 @@ jobs:
         run: node deobfuscate.js
 
       - name: Extract arrays and generate key
-        run: node extractor.js
+        run: node extractor_v2.js
 
       - name: Checkout ${{ matrix.branch }} branch
         uses: actions/checkout@v4
